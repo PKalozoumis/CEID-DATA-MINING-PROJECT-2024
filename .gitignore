@@ -1,0 +1,7 @@
+results/
+test/
+
+__pycache__
+data.csv
+funny.py
+.idea/
