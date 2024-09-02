@@ -1,7 +1,10 @@
 import pandas as pd
 import os
-import config
 import numpy as np
+import shutil
+import json
+from collections import namedtuple
+import re
 
 #====================================================================================================
 
@@ -35,6 +38,13 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
 
 if __name__ == "__main__":
 
+    config = None
+
+    with open("config.json", "r") as f:
+        temp = json.load(f)
+        Config = namedtuple("Config", temp.keys())
+        config = Config(**temp)
+
     window_size = 5
     
     #Feature names
@@ -42,6 +52,7 @@ if __name__ == "__main__":
 
     columns = []
 
+    #New column names
     for i in range(window_size):
         columns.append([n + f"{'_' + str(-(window_size-1 - i)) if (i < window_size-1) else ''}" for n in feature_names])
 
@@ -50,15 +61,21 @@ if __name__ == "__main__":
 
     #Make dataset
 
-    header=True
-
-    if os.path.exists("data.csv"):
-        os.remove("data.csv")
+    os.makedirs(config.train_dir, exist_ok=True)
 
     for file in os.listdir(config.dataset_dir):
+
+        fname = "W_" + file
+
+        if os.path.exists(os.path.join(config.train_dir, fname)):
+            print(f"Skipping file {file}...")
+            continue
+
         print(f"Reading file {file}...")
 
         features = file_to_window(os.path.join(config.dataset_dir, file), window_size)
         df = pd.DataFrame(features, columns=columns)
-        df.to_csv("data.csv", header=header, mode="a", index=False)
-        header=False
+        df = df.astype({"label": "int"},)
+        df["participant"] = int(file[2:4])
+        
+        df.to_csv(os.path.join(config.train_dir, fname), index=False)

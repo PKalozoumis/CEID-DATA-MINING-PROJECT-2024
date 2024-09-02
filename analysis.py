@@ -3,8 +3,10 @@ from matplotlib import pyplot as plt
 import os
 import seaborn as sns
 import numpy as np
-import config
 import re
+import copy
+import json
+from collections import namedtuple
 
 import shutil
 
@@ -29,10 +31,18 @@ activity_list = [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 130, 140]
 # noinspection SpellCheckingInspection
 if __name__ == "__main__":
 
+    config = None
+
+    with open("config.json", "r") as f:
+        temp = json.load(f)
+        Config = namedtuple("Config", temp.keys())
+        config = Config(**temp)
+
     if os.path.exists(config.results_dir):
         shutil.rmtree(config.results_dir)
 
     os.makedirs(config.results_dir)
+    os.makedirs(f"{config.results_dir}/outliers")
 
     li = []
 
@@ -56,6 +66,10 @@ if __name__ == "__main__":
     mean = data.groupby("label").mean()
     mean.to_excel(os.path.join(config.results_dir, "mean.xlsx"), index_label="Label")
     print("Saving mean.xlsx...")
+
+    median = data.groupby("label").median()
+    median.to_excel(os.path.join(config.results_dir, "median.xlsx"), index_label="Label")
+    print("Saving median.xlsx...")
 
     corr = data.groupby("label").corr()
     corr.index.set_names(["label", "dim"], inplace=True)
@@ -82,52 +96,92 @@ if __name__ == "__main__":
     #print("\nQuantiles\n==================================================")
     #print(quantile)
 
-    print(mean.index.to_list())
-
-
     #Clearing outliers
     #==========================================================================================
+
+    print(median)
+
+    no_outliers = copy.deepcopy(data)
 
     for act in activity_list:
         for attr in attr_list:
 
-            if act not in mean.index.to_list():
+            if act not in median.index.to_list():
                 continue
 
-            q1 = data.loc[data["label"] == act][attr].quantile(0.25)
-            q3 = data.loc[data["label"] == act][attr].quantile(0.75)
-            iqr = q3 - q1
+            '''
+            abs_deviation = np.abs(no_outliers.loc[no_outliers["label"] == act, attr] - median.loc[act, attr])
+            q3 = no_outliers.loc[no_outliers["label"] == act][attr].quantile(0.75)
 
-            low = q1 - 1.5*iqr
-            high = q3 + 1.5*iqr
-            full_count = len(data.loc[data["label"] == act])
+            mad = abs_deviation.median()
 
-            data.loc[data["label"] == act] = data.loc[(data["label"] == act) & (data[attr] > low) & (data[attr] < high)]
-            filtered_count =  len(data.loc[data["label"] == act])
-            print(f'\nWithin [{low:.3f},{high:.3f}]: {filtered_count} out of {full_count} ({(filtered_count/full_count)*100:.2f} %)\n')
+            print(mad)
+
+            #abs_deviation = no_outliers - median
+
+            low = median.loc[act, attr] - 3*mad
+            high = median.loc[act, attr] + 3*mad
+            '''
+
+            low = mean.loc[act, attr] - 3*std.loc[act, attr]
+            high = mean.loc[act, attr] + 3*std.loc[act, attr]
+
+            full_count = len(no_outliers.loc[no_outliers["label"] == act])
+            no_outliers.loc[no_outliers["label"] == act] = no_outliers.loc[(no_outliers["label"] == act) & (no_outliers[attr] > low) & (no_outliers[attr] < high)]
+            filtered_count =  len(no_outliers.loc[no_outliers["label"] == act])
+
+            print(f'\nWithin [{low:.3f},{high:.3f}]: {filtered_count} out of {full_count} ({(filtered_count/full_count)*100:.2f} %)')
     #==========================================================================================
 
     print()
 
     for label in np.sort(df["label"].unique()):
 
+        #Correlation heatmap
+
+        fig, ax = plt.subplots()
+        sns.heatmap(corr.loc[label], annot=True, cmap='Greens', fmt='.3f', ax = ax)
+        fig.savefig(os.path.join(config.results_dir, f"corr_{label}.png"))
+
+        continue
+
         print(f"Generating plot for Activity {label:03}...")
 
-        current_label_data = data.loc[data["label"] == label]
+        current_label_data = data.loc[data["label"] == label, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]]
+        current_label_data_no_outliers = data.loc[no_outliers["label"] == label, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]]
 
-        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16,9))
+        fig0, ax0 = plt.subplots()
+        fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(16,9))
 
         for name, col in current_label_data.items():
-            sns.kdeplot(col, fill=True, label=name, ax = ax[1])
+            sns.kdeplot(col, fill=True, label=name, ax = ax0)
+            sns.kdeplot(col, fill=True, label=name, ax = ax1[0])
 
-        ax[1].set_title(f"Density Plot for Activity {label} ({activities[str(label)]})")
-        ax[1].set_xlabel("Value")
-        ax[1].set_ylabel("Density")
-        ax[1].legend()
+        for name, col in current_label_data_no_outliers.items():
+            sns.kdeplot(col, fill=True, label=name, ax = ax1[1])
+
+        ax0.set_title(f"Density Plot for Activity {label} ({activities[str(label)]})")
+        ax0.set_xlabel("Value")
+        ax0.set_ylabel("Density")
+        ax0.legend()
+
+
+        ax1[0].set_title(f"Density Plot for Activity {label} ({activities[str(label)]})")
+        ax1[0].set_xlabel("Value")
+        ax1[0].set_ylabel("Density")
+        ax1[0].legend()
+
+        ax1[1].set_title(f"Density Plot for Activity {label} ({activities[str(label)]}) (no outliers)")
+        ax1[1].set_xlabel("Value")
+        ax1[1].set_ylabel("Density")
+        ax1[1].legend()
         #plt.show()
 
-        fig.savefig(os.path.join(config.results_dir, f"Figure_{label:03}.png"), bbox_inches="tight")
-        fig.clf()
+        fig0.savefig(os.path.join(config.results_dir, f"Figure_{label:03}.png"), bbox_inches="tight")
+        fig1.savefig(os.path.join(config.results_dir, "outliers", f"Figure_{label:03}_outliers.png"), bbox_inches="tight")
+
+        fig0.close()
+        fig1.close()
 
         #Scatter plot
 
