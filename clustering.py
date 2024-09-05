@@ -4,7 +4,7 @@ import os
 import sys
 
 import pandas as pd
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, Birch, DBSCAN, KMeans
 from scipy.cluster.hierarchy import dendrogram, linkage
 from matplotlib import pyplot as plt
 from sklearn.metrics import silhouette_score
@@ -49,6 +49,18 @@ if __name__ == "__main__":
 
             record["participant"] = int(file[2:4])
 
+            '''
+            record = {}
+
+            for feature in features:
+                record[feature + "_median"] = df[feature].median()
+                record[feature + "_std"] = df[feature].std()
+                record[feature + "_max"] = df[feature].max()
+                record[feature + "_min"] = df[feature].min()
+
+            record["participant"] = int(file[2:4])
+            '''
+
             data.append(record)
 
         df = pd.DataFrame(data)
@@ -61,6 +73,10 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     clustering = AgglomerativeClustering(n_clusters=3)
+    #clustering = KMeans(n_clusters=3, random_state=0)
+    #clustering = DBSCAN(eps=2.6, min_samples=3)
+    #clustering = Birch(n_clusters=3)
+    
     model = clustering.fit(df)
 
     print(model.labels_)

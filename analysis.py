@@ -9,7 +9,7 @@ import json
 from collections import namedtuple
 import sys
 import math
-
+from datetime import datetime
 import argparse
 
 import shutil
@@ -171,6 +171,8 @@ if __name__ == "__main__":
 
     for participant in df["participant"].unique():
 
+        print(f"Participant {participant}")
+
         pdata = df.loc[df["participant"] == participant]
 
         #Split participant data based on consecutive same value on the label column
@@ -180,27 +182,29 @@ if __name__ == "__main__":
         groups = [(pdata.iloc[0]["label"], pdata) for _, pdata in pdata.groupby(s)]
 
         #Initialize plot
-        rows = math.floor(math.sqrt(len(groups)))
-        cols = math.ceil(len(groups)/rows)
-        tfig, tax = plt.subplots(nrows=rows, ncols=cols, figsize=(16,9))
+        #tfig, tax = plt.subplots(nrows=2, ncols=3, figsize=(16,9))
 
-        #print(groups)
+        for j, (label, group) in enumerate(groups):
 
-        for i, (label, df2) in enumerate(groups):
+            print(f"Generating time series {j}/{len(groups)}...")
 
-            subplot = tax[i // rows, i % rows]
+            tfig, tax = plt.subplots(figsize=(16,9))
 
-            for attr in ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]:
-                subplot.plot(df2["timestamp"], df2[attr], label=attr)
+            #for i, attr in enumerate(["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]):
+            for i, attr in enumerate(["back_x"]):
+                tax.set_xticks([])
+                tax.plot(group["timestamp"], group[attr])
+                tax.set_xlabel("Timestamp")
+                tax.set_ylabel("Value")
+                tax.set_title(f'{attr}')
 
-            subplot.legend()
-            subplot.set_xlabel("Timestamp")
-            subplot.set_ylabel("Value")
-            subplot.set_title(f'{label}')
+            start_time = datetime.strptime(group['timestamp'].iloc[0], "%Y-%m-%d %H:%M:%S.%f").time()
+            end_time = datetime.strptime(group['timestamp'].iloc[-1], "%Y-%m-%d %H:%M:%S.%f").time()
+            tfig.suptitle(f"Time series data for participant {participant} activity {label} ({activities[str(label)]})\nStart: {start_time} End: {end_time} Duration (mins): {4}")
 
-        tfig.suptitle(f"Time series data for participant {participant}")
+            tfig.savefig(os.path.join(config.results_dir, "timeseries", f"S0{participant:02}_tseries_{j:04}.png"))
 
-        tfig.savefig(os.path.join(config.results_dir, "timeseries", f"S0{participant:02}_tseries.png"))
+            tfig.clear()
 
     sys.exit()
 
