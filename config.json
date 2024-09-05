@@ -1,6 +1,6 @@
 {
-    "results_dir": "results",
-    "dataset_dir": "harth",
-    "train_dir": "train_data",
+    "results_dir": "proj/results",
+    "dataset_dir": "proj/harth",
+    "train_dir": "proj/train_data",
     "window_size": "5"
 }

@@ -12,6 +12,7 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
 
     df = pd.read_csv(file, index_col=None, header=0, usecols=["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"])
 
+    #This little trick or whatever will group SEQUENTIAL records that have the same label
     s = df["label"].ne(df["label"].shift()).cumsum()
     dflist = [(df.iloc[0]["label"], df) for _,df in df.groupby(s)]
 
