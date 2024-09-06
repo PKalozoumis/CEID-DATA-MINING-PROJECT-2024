@@ -15,18 +15,18 @@ import argparse
 import shutil
 
 activities = {
-    "1": "walking",
-    "2": "running",
-    "3": "shuffling",
-    "4": "stairs ascending",
-    "5": "stairs descending",
-    "6": "standing",
-    "7": "sitting",
-    "8": "lying",
-    "13": "cycling sit",
-    "14": "cycling stand",
-    "130": "cycling sit inactive",
-    "140": "cycling stand inactive"
+    1: "walking",
+    2: "running",
+    3: "shuffling",
+    4: "stairs ascending",
+    5: "stairs descending",
+    6: "standing",
+    7: "sitting",
+    8: "lying",
+    13: "cycling sit",
+    14: "cycling stand",
+    130: "cycling sit inactive",
+    140: "cycling stand inactive"
 }
 
 attr_list = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]
@@ -35,10 +35,12 @@ activity_list = [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 130, 140]
 # noinspection SpellCheckingInspection
 if __name__ == "__main__":
 
-    #Arguments
+    #Config and directory initialization
     #===================================================================================================================
     parser = argparse.ArgumentParser(description='Dataset Analysis', allow_abbrev=False)
-    parser.add_argument('--no-outliers', action="store_true", default=False, help="Remove outliers from the dataset")
+    parser.add_argument('--tseries', action="store_true", default=False)
+    parser.add_argument('--density', action="store_true", default=False)
+    parser.add_argument('--corr', action="store_true", default=False)
     args = parser.parse_args()
     
     #Config and directory initialization
@@ -50,26 +52,61 @@ if __name__ == "__main__":
         Config = namedtuple("Config", temp.keys())
         config = Config(**temp)
 
-    if os.path.exists(config.results_dir):
-        shutil.rmtree(config.results_dir)
+    #Results directory
+    #---------------------------------------------------------------------------------
+    os.makedirs(config.results_dir, exist_ok=True)
 
-    if os.path.exists("proj/no_outliers"):
-        shutil.rmtree("proj/no_outliers")
+    if os.path.exists(f"{config.results_dir}/other"):
+        shutil.rmtree(f"{config.results_dir}/other")
 
-    os.makedirs(config.results_dir)
-    os.makedirs(f"{config.results_dir}/outliers")
-    os.makedirs(f"{config.results_dir}/density")
-    os.makedirs(f"{config.results_dir}/timeseries")
-    os.makedirs(f"{config.results_dir}/heatmaps")
-    os.makedirs(f"{config.results_dir}/density/grid")
-    os.makedirs("proj/no_outliers")
+    os.makedirs(f"{config.results_dir}/other")
+
+    #Density
+    #---------------------------------------------------------------------------------
+    if args.density:
+        if os.path.exists(f"{config.results_dir}/density"):
+            shutil.rmtree(f"{config.results_dir}/density")
+
+        if os.path.exists(f"{config.results_dir}/density/grid"):
+            shutil.rmtree(f"{config.results_dir}/density/grid")
+
+        os.makedirs(f"{config.results_dir}/density")
+        os.makedirs(f"{config.results_dir}/density/grid")
+
+    #Timeseries
+    #---------------------------------------------------------------------------------
+    if args.tseries:
+        if os.path.exists(f"{config.results_dir}/timeseries"):
+            shutil.rmtree(f"{config.results_dir}/timeseries")
+
+        os.makedirs(f"{config.results_dir}/timeseries")
+
+    #Correlation
+    #---------------------------------------------------------------------------------
+
+    os.makedirs(f"{config.results_dir}/correlation", exist_ok=True)
+
+    if args.corr:
+
+        if os.path.exists(f"{config.results_dir}/correlation"):
+            shutil.rmtree(f"{config.results_dir}/correlation")
+
+        if os.path.exists(f"{config.results_dir}/correlation/heatmaps"):
+            shutil.rmtree(f"{config.results_dir}/correlation/heatmaps")
+
+        if os.path.exists(f"{config.results_dir}/correlation/scatter"):
+            shutil.rmtree(f"{config.results_dir}/correlation/scatter")
+
+        os.makedirs(f"{config.results_dir}/correlation")
+        os.makedirs(f"{config.results_dir}/correlation/heatmaps")
+        os.makedirs(f"{config.results_dir}/correlation/scatter")    
 
     #Read files into one dataframe
     #===================================================================================================================
     li = []
 
-    for file in ["S006.csv"]:
-    #for file in os.listdir(config.dataset_dir):
+    #for file in ["S006.csv"]:
+    for file in os.listdir(config.dataset_dir):
         print(f"Reading {file}...")
 
         df = pd.read_csv(os.path.join(config.dataset_dir, file), index_col=None, header=0, usecols=["timestamp", "back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"])
@@ -92,210 +129,148 @@ if __name__ == "__main__":
     data["label"] = df["label"]
 
     mean = data.groupby("label").mean()
-    mean.to_excel(os.path.join(config.results_dir, "mean.xlsx"), index_label="Label")
+    mean.to_excel(os.path.join(config.results_dir, "other", "mean.xlsx"), index_label="Label")
     print("Saving mean.xlsx...")
 
     median = data.groupby("label").median()
-    median.to_excel(os.path.join(config.results_dir, "median.xlsx"), index_label="Label")
+    median.to_excel(os.path.join(config.results_dir, "other", "median.xlsx"), index_label="Label")
     print("Saving median.xlsx...\n")
 
     corr = data.groupby("label").corr()
     corr.index.set_names(["label", "dim"], inplace=True)
 
     for label in labels:
-        corr.loc[label].to_excel(os.path.join(config.results_dir, f"corr_{label:03}.xlsx"))
+        corr.loc[label].to_excel(os.path.join(config.results_dir, "correlation", f"corr_{label:03}.xlsx"))
         print(f"Saving corr_{label:03}.xlsx...\n")
 
     std = data.groupby("label").std()
-    mean.to_excel(os.path.join(config.results_dir, "std.xlsx"), index_label="Label")
+    mean.to_excel(os.path.join(config.results_dir, "other", "std.xlsx"), index_label="Label")
     print("Saving std.xlsx...\n")
-
-    #Clearing outliers
-    #===================================================================================================================
-
-    no_outliers = None
-
-    if args.no_outliers:
-
-        no_outliers = copy.deepcopy(df)
-
-        total_outliers = 0
-
-        for act in activity_list:
-            
-            if act not in median.index.to_list():
-                    continue
-            
-            for attr in attr_list:
-
-                '''
-                abs_deviation = np.abs(no_outliers.loc[no_outliers["label"] == act, attr] - median.loc[act, attr])
-                q3 = no_outliers.loc[no_outliers["label"] == act][attr].quantile(0.75)
-
-                mad = abs_deviation.median()
-
-                print(mad)
-
-                #abs_deviation = no_outliers - median
-
-                low = median.loc[act, attr] - 3*mad
-                high = median.loc[act, attr] + 3*mad
-                '''
-
-                low = mean.loc[act, attr] - 3*std.loc[act, attr]
-                high = mean.loc[act, attr] + 3*std.loc[act, attr]
-
-                full_count = len(no_outliers.loc[no_outliers["label"] == act])
-                no_outliers = no_outliers.loc[(no_outliers["label"] != act) | ((no_outliers["label"] == act) & (no_outliers[attr] > low) & (no_outliers[attr] < high))]
-                filtered_count =  len(no_outliers.loc[no_outliers["label"] == act])
-
-                total_outliers += full_count - filtered_count
-
-                print(f'Within [{low:.3f},{high:.3f}]: {filtered_count} out of {full_count} ({(filtered_count/full_count)*100:.2f} %)')
-
-        print(f"\nRemoved a total of {total_outliers} outliers")
-
-        #Rewrite the files, without outliers
-        for participant in no_outliers["participant"].unique():
-            print(f"Writing S0{participant:02}_no_outliers.csv...")
-            no_outliers.loc[no_outliers["participant"] == participant].drop("participant", axis=1).to_csv("proj/no_outliers/"f"S0{participant:02}_no_outliers.csv", index=False)
-
-    #print(no_outliers)
-
-    #mean = no_outliers.groupby("label").mean()
-    #mean.to_excel(os.path.join(config.results_dir, "mean_no_outliers.xlsx"), index_label="Label")
-    #print("Saving mean_no_outliers.xlsx...")
 
     #Time Series Plots
     #===================================================================================================================
 
-    for participant in df["participant"].unique():
+    if args.tseries:
+        #We want to have 5 time series examples for each activity
+        tseries_counts = {key: 0 for key in activities.keys()}
 
-        print(f"Participant {participant}")
+        for participant in df["participant"].unique():
 
-        pdata = df.loc[df["participant"] == participant]
+            done = True
 
-        #Split participant data based on consecutive same value on the label column
-        #This will show us how many times the participant changed activity
+            for val in tseries_counts.values():
+                if val < 5:
+                    done = False
+                    break
 
-        s = pdata["label"].ne(pdata["label"].shift()).cumsum()
-        groups = [(pdata.iloc[0]["label"], pdata) for _, pdata in pdata.groupby(s)]
+            if done:
+                break
 
-        #Initialize plot
-        #tfig, tax = plt.subplots(nrows=2, ncols=3, figsize=(16,9))
+            print(f"Participant {participant}")
 
-        for j, (label, group) in enumerate(groups):
+            pdata = df.loc[df["participant"] == participant]
 
-            print(f"Generating time series {j}/{len(groups)}...")
+            #Split participant data based on consecutive same value on the label column
+            #This will show us how many times the participant changed activity
 
-            tfig, tax = plt.subplots(figsize=(16,9))
+            s = pdata["label"].ne(pdata["label"].shift()).cumsum()
+            groups = [(pdata.iloc[0]["label"], pdata) for _, pdata in pdata.groupby(s)]
 
-            #for i, attr in enumerate(["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]):
-            for i, attr in enumerate(["back_x"]):
-                tax.set_xticks([])
-                tax.plot(group["timestamp"], group[attr])
-                tax.set_xlabel("Timestamp")
-                tax.set_ylabel("Value")
-                tax.set_title(f'{attr}')
+            for j, (label, group) in enumerate(groups):
 
-            start_time = datetime.strptime(group['timestamp'].iloc[0], "%Y-%m-%d %H:%M:%S.%f").time()
-            end_time = datetime.strptime(group['timestamp'].iloc[-1], "%Y-%m-%d %H:%M:%S.%f").time()
-            tfig.suptitle(f"Time series data for participant {participant} activity {label} ({activities[str(label)]})\nStart: {start_time} End: {end_time} Duration (mins): {4}")
+                if tseries_counts[label] == 5:
+                    continue
 
-            tfig.savefig(os.path.join(config.results_dir, "timeseries", f"S0{participant:02}_tseries_{j:04}.png"))
+                print(f"Generating time series {tseries_counts[label]+1}/5 for {activities[label]}...")
 
-            tfig.clear()
+                tfig, tax = plt.subplots(nrows=2, ncols=3, figsize=(16,9))
 
-    sys.exit()
+                for i, attr in enumerate(["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]):
+                    tax[i//3, i%3].set_xticks([])
+                    tax[i//3, i%3].plot(group["timestamp"], group[attr])
+                    tax[i//3, i%3].set_xlabel("Timestamp")
+                    tax[i//3, i%3].set_ylabel("Value")
+                    tax[i//3, i%3].set_title(f'{attr}')
+
+                start_time = datetime.strptime(group['timestamp'].iloc[0], "%Y-%m-%d %H:%M:%S.%f").time()
+                end_time = datetime.strptime(group['timestamp'].iloc[-1], "%Y-%m-%d %H:%M:%S.%f").time()
+                tfig.suptitle(f"Time series data for participant {participant} activity {label} ({activities[label]})\nStart: {start_time} End: {end_time}")
+
+                tfig.savefig(os.path.join(config.results_dir, "timeseries", f"tseries_{activities[label].replace(' ', '_')}_{tseries_counts[label]}.png"))
+
+                plt.close(tfig)
+
+                #Update count
+                tseries_counts[label] += 1
 
     #Plots
     #===================================================================================================================
 
     for label in np.sort(df["label"].unique()):
 
-        print(f"Generating plots for Activity {label:03}...")
-
-        #Correlation heatmap
-        #-----------------------------------------------------------------------------------------------------------------------
-        fig, ax = plt.subplots()
-        sns.heatmap(corr.loc[label], annot=True, cmap='coolwarm', fmt='.3f', ax = ax, vmin=-1, vmax=1)
-        ax.set_title(f"Correlation heatmap for Activity {label} ({activities[str(label)]})")
-        fig.savefig(os.path.join(config.results_dir, "heatmaps", f"corr_{label:03}.png"))
-
-        #Density plots
-        #-----------------------------------------------------------------------------------------------------------------------
         current_label_data = data.loc[data["label"] == label, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]]
-        #current_label_data_no_outliers = data.loc[no_outliers["label"] == label, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]]
 
-        fig0, ax0 = plt.subplots()
-        fig_grid, ax_grid = plt.subplots(nrows = 2, ncols = 3, figsize=(16,9))
-        #fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(16,9))
+        if args.corr:
 
-        for i, (name, col) in enumerate(current_label_data.items()):
-            sns.kdeplot(col, fill=True, label=name, ax = ax0)
-            sns.kdeplot(col ,fill=True, label=name, ax = ax_grid[i//3, i%3])
-            #sns.kdeplot(col, fill=True, label=name, ax = ax1[0])
+            print(f"Generating correlation heatmap for Activity {label:03}...")
 
-            ax_grid[i//3, i%3].set_title(f"Density Plot of {name} for Activity {label} ({activities[str(label)]})")
-            ax_grid[i//3, i%3].set_xlabel("Value")
-            ax_grid[i//3, i%3].set_ylabel("Density")
+            corr_table = corr.loc[label]
 
-            low = median.loc[label, name] - 3*std.loc[label, name]
-            high = median.loc[label, name] + 3*std.loc[label, name]
+            #Correlation heatmap
+            #-----------------------------------------------------------------------------------------------------------------------
+            fig, ax = plt.subplots()
+            sns.heatmap(corr_table, annot=True, cmap='coolwarm', fmt='.3f', ax = ax, vmin=-1, vmax=1)
+            ax.set_title(f"Correlation heatmap for Activity {label} ({activities[label]})")
+            fig.savefig(os.path.join(config.results_dir, "correlation", "heatmaps", f"corr_{label:03}.png"))
 
-            ax_grid[i//3, i%3].axvline(x=low, color='r', linestyle='-', linewidth=1)
-            ax_grid[i//3, i%3].axvline(x=high, color='r', linestyle='-', linewidth=1)
+            plt.close(fig)
 
-        '''
-        for name, col in current_label_data_no_outliers.items():
-            sns.kdeplot(col, fill=True, label=name, ax = ax1[1])
-        '''
+            #Scatter plots
+            #-----------------------------------------------------------------------------------------------------------------------
+            for dim, corr_data in corr_table.iterrows():
+                stop = False
+                for attr in attr_list:
+                    if dim == attr:
+                        break
 
-        ax0.set_title(f"Density Plot for Activity {label} ({activities[str(label)]})")
-        ax0.set_xlabel("Value")
-        ax0.set_ylabel("Density")
-        ax0.legend()
+                    if abs(corr_data[attr]) > 0.4:
+                        plt.scatter(current_label_data[dim], current_label_data[attr])
+                        plt.xlabel(dim)
+                        plt.ylabel(attr)
+                        plt.title(f"Scatter plot between {dim} and {attr} for Activity {label}\n(Correlation = {corr_data[attr]:.2f})")
+                        plt.savefig(os.path.join(config.results_dir, "correlation", "scatter", f"scatter_{label:03}_{dim}_{attr}.png"), bbox_inches="tight")
+                        plt.close()
 
-        '''
-        ax1[0].set_title(f"Density Plot for Activity {label} ({activities[str(label)]})")
-        ax1[0].set_xlabel("Value")
-        ax1[0].set_ylabel("Density")
-        ax1[0].legend()
+        if args.density:
 
-        ax1[1].set_title(f"Density Plot for Activity {label} ({activities[str(label)]}) (no outliers)")
-        ax1[1].set_xlabel("Value")
-        ax1[1].set_ylabel("Density")
-        ax1[1].legend()
-        '''
+            print(f"Generating density plots for Activity {label:03}...")
 
-        #plt.show()
+            #Density plots
+            #-----------------------------------------------------------------------------------------------------------------------
 
-        fig0.savefig(os.path.join(config.results_dir, "density", f"Figure_{label:03}.png"), bbox_inches="tight")
-        fig_grid.savefig(os.path.join(config.results_dir, "density", "grid", f"Figure_{label:03}_grid.png"), bbox_inches="tight")
-        #fig1.savefig(os.path.join(config.results_dir, "outliers", f"Figure_{label:03}_outliers.png"), bbox_inches="tight")
-        #Scatter plot
+            fig0, ax0 = plt.subplots()
+            fig_grid, ax_grid = plt.subplots(nrows = 2, ncols = 3, figsize=(16,9))
+
+            for i, (name, col) in enumerate(current_label_data.items()):
+                sns.kdeplot(col, fill=True, label=name, ax = ax0)
+                sns.kdeplot(col ,fill=True, label=name, ax = ax_grid[i//3, i%3])
+
+                ax_grid[i//3, i%3].set_title(f"Density Plot of {name} for Activity {label}\n({activities[label]})")
+                ax_grid[i//3, i%3].set_xlabel("Value")
+                ax_grid[i//3, i%3].set_ylabel("Density")
+
+                #low = median.loc[label, name] - 3*std.loc[label, name]
+                #high = median.loc[label, name] + 3*std.loc[label, name]
+
+                #ax_grid[i//3, i%3].axvline(x=low, color='r', linestyle='-', linewidth=1)
+                #ax_grid[i//3, i%3].axvline(x=high, color='r', linestyle='-', linewidth=1)
+
+            ax0.set_title(f"Density Plot for Activity {label} ({activities[label]})")
+            ax0.set_xlabel("Value")
+            ax0.set_ylabel("Density")
+            ax0.legend()
+
+            fig0.savefig(os.path.join(config.results_dir, "density", f"Figure_{label:03}.png"), bbox_inches="tight")
+            fig_grid.savefig(os.path.join(config.results_dir, "density", "grid", f"Figure_{label:03}_grid.png"), bbox_inches="tight")
 
         plt.close('all')
-
-    #sns.lmplot(x="thigh_x", y="back_x", data=current_label_data)
-    #plt.show()
-
-    #======================================================================
-
-
-    '''
-
-    melted = data.loc[data["label"] == 1, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]].melt(var_name="Category", value_name="Value")
-
-    print(f'\nBox plot kept {len(data)} out of {full_count} ({(len(data)/full_count)*100}%)\n')
-
-
-    fig, ax = plt.subplots()
-    melted.boxplot(by="Category", column="Value")
-
-    ax.set_title("Box Plot")
-    ax.set_xlabel("Category")
-    ax.set_ylabel("Value")
-
-    plt.show()
-    '''
