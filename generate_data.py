@@ -5,11 +5,13 @@ import shutil
 import json
 from collections import namedtuple
 import re
+import argparse
 
 #====================================================================================================
 
 def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
 
+    attrs = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"]
     df = pd.read_csv(file, index_col=None, header=0, usecols=["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"])
 
     #This little trick or whatever will group SEQUENTIAL records that have the same label
@@ -21,7 +23,12 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
     for label, df in dflist:
 
         if window_size > len(df):
-            window_data = df.shift(periods=len(df) - window_size, fill_value=0.0)
+            shift = pd.DataFrame([[0]*len(attrs)], columns=attrs)
+            shift["label"] = label
+            new_rows = [shift]*(window_size - len(df))
+            
+            window_data = pd.concat([*new_rows, df])
+            
             feature_vector = window_data.drop(columns="label").values.flatten()
             features.append(np.append(feature_vector, label))
 
@@ -33,11 +40,13 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
 
     return features
 
-    return pd.DataFrame(features, columns=columns)
-
 #====================================================================================================
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Making windowed data out of the original dataset', allow_abbrev=False)
+    parser.add_argument('--all', action="store_true", default=False, help="Recreate all files")
+    args = parser.parse_args()
 
     config = None
 
@@ -49,26 +58,28 @@ if __name__ == "__main__":
     window_size = 5
     
     #Feature names
+    #==================================================================================================
     feature_names = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]
 
     columns = []
 
     #New column names
+    #==================================================================================================
     for i in range(window_size):
-        columns.append([n + f"{'_' + str(-(window_size-1 - i)) if (i < window_size-1) else ''}" for n in feature_names])
+        columns.append([n + f"{'_m' + str(window_size-1 - i) if (i < window_size-1) else ''}" for n in feature_names])
 
     columns = [elem for li in columns for elem in li]
     columns.append("label")
 
     #Make dataset
-
+    #==================================================================================================
     os.makedirs(config.train_dir, exist_ok=True)
 
     for file in os.listdir(config.dataset_dir):
 
-        fname = "W_" + file
+        fname = f"W{window_size:02}_{file}"
 
-        if os.path.exists(os.path.join(config.train_dir, fname)):
+        if not args.all and os.path.exists(os.path.join(config.train_dir, fname)):
             print(f"Skipping file {file}...")
             continue
 
@@ -76,6 +87,7 @@ if __name__ == "__main__":
 
         features = file_to_window(os.path.join(config.dataset_dir, file), window_size)
         df = pd.DataFrame(features, columns=columns)
+
         df = df.astype({"label": "int"},)
         df["participant"] = int(file[2:4])
         
