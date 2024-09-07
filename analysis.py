@@ -274,3 +274,18 @@ if __name__ == "__main__":
             fig_grid.savefig(os.path.join(config.results_dir, "density", "grid", f"Figure_{label:03}_grid.png"), bbox_inches="tight")
 
         plt.close('all')
+
+    if args.density:
+        #Density plots regardless of label
+        #-----------------------------------------------------------------------------------------------------------------------
+
+        fig_grid, ax_grid = plt.subplots(nrows = 2, ncols = 3, figsize=(16,9))
+
+        for i, (name, col) in enumerate(data[["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]].items()):
+            sns.kdeplot(col ,fill=True, label=name, ax = ax_grid[i//3, i%3])
+
+            ax_grid[i//3, i%3].set_title(f"Density Plot of {name}")
+            ax_grid[i//3, i%3].set_xlabel("Value")
+            ax_grid[i//3, i%3].set_ylabel("Density")
+
+        fig_grid.savefig(os.path.join(config.results_dir, "density", f"Figure_all.png"), bbox_inches="tight")

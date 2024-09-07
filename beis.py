@@ -25,9 +25,11 @@ from pgmpy.models import BayesianNetwork
 from pgmpy.estimators import BicScore, HillClimbSearch, MaximumLikelihoodEstimator
 from pgmpy.inference import VariableElimination
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 
 import tensorflow as tf
+
+import re
 
 pd.options.mode.chained_assignment = None  # default='warn'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress only warnings (not errors or info)
@@ -46,7 +48,21 @@ if __name__ == "__main__":
 
     #Initialize dataset
     #=======================================================================================
-    df = pd.read_csv(os.path.join(config.train_dir, "W05_S006.csv"), header=0)
+    #df = pd.read_csv(os.path.join(config.train_dir, "W05_S006.csv"), header=0)
+
+    li = []
+
+    for file in os.listdir(config.train_dir):
+        print(f"Reading {file}...")
+
+        df = pd.read_csv(os.path.join(config.train_dir, file), index_col=None, header=0)
+        
+        match = re.match(r"W05_S0([\d]{2})\.csv", file)
+        df["participant"] = int(file[6:8])
+        df = df.astype({"label": "int"})
+        li.append(df)
+
+    df = pd.concat(li, axis=0, ignore_index=True)
 
     X = df.drop(columns=["label", "participant"])
     Y = df[["label"]]
@@ -75,6 +91,22 @@ if __name__ == "__main__":
     #Bayesian network
     #=======================================================================================
 
+    Y = df[["label"]]
+
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1997)
+
+    model = GaussianNB()
+
+    model.fit(X_train,Y_train)
+    predictions = model.predict(X_test)
+
+    #true_labels = data_test["label"].tolist()
+
+    #accuracy = accuracy_score(true_labels, predictions)
+    #print(f"Accuracy: {accuracy}")
+    print(classification_report(Y_test, predictions))
+
+    '''
     t = time.time()
 
     hc = HillClimbSearch(binned)
@@ -106,31 +138,4 @@ if __name__ == "__main__":
     accuracy = accuracy_score(true_labels, predictions)
     print(f"Accuracy: {accuracy}")
     print(f"Time: {time.time() - t}s")
-
-    '''
-
-    model = Sequential()
-
-    model.add(Dense(32, activation="relu", input_dim=30))
-    model.add(Dense(12, activation="softmax", input_dim=32))
-
-    optimizer = SGD(learning_rate=0.001)
-
-    model.compile(loss='categorical_crossentropy', optimizer = optimizer)
-
-    history = model.fit(X_train, Y_train, epochs=80, verbose=0, validation_data=(X_test, Y_test))
-
-    loss_train = np.pad(history.history["loss"], (0, max(0, num_epochs - len(history.history["loss"]))), mode="edge")
-    loss_valid = np.pad(history.history["val_loss"], (0, max(0, num_epochs - len(history.history["val_loss"]))), mode="edge")
-
-    plt.plot(loss_train, label=f"Train Loss")
-    plt.plot(loss_valid, label=f"Valid Loss")
-
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Convergence Plot per Training Cycle')
-    plt.legend()
-    plt.show()
-
-    print(df)
     '''
