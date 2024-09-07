@@ -31,6 +31,8 @@ import tensorflow as tf
 
 import re
 
+from joblib import load, dump
+
 pd.options.mode.chained_assignment = None  # default='warn'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress only warnings (not errors or info)
 
@@ -50,12 +52,27 @@ if __name__ == "__main__":
     #=======================================================================================
     #df = pd.read_csv(os.path.join(config.train_dir, "W05_S006.csv"), header=0)
 
+    #Limit dataset
+    #-------------------------------------------------------------------------------------
+
+    window_size = 3
+
+    feature_names = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]
+
+    columns = []
+    for i in range(window_size):
+        columns.append([n + f"{'_m' + str(window_size-1 - i) if (i < window_size-1) else ''}" for n in feature_names])
+
+    columns = [elem for li in columns for elem in li]
+    columns.append("label")
+    #-------------------------------------------------------------------------------------
+
     li = []
 
     for file in os.listdir(config.train_dir):
         print(f"Reading {file}...")
 
-        df = pd.read_csv(os.path.join(config.train_dir, file), index_col=None, header=0)
+        df = pd.read_csv(os.path.join(config.train_dir, file), index_col=None, header=0, usecols = columns)
         
         match = re.match(r"W05_S0([\d]{2})\.csv", file)
         df["participant"] = int(file[6:8])
@@ -97,7 +114,13 @@ if __name__ == "__main__":
 
     model = GaussianNB()
 
+    t = time.time()
+
     model.fit(X_train,Y_train)
+
+    print("Dumping model...")
+    dump(model, "proj/bayes.joblib")
+
     predictions = model.predict(X_test)
 
     #true_labels = data_test["label"].tolist()
@@ -105,6 +128,7 @@ if __name__ == "__main__":
     #accuracy = accuracy_score(true_labels, predictions)
     #print(f"Accuracy: {accuracy}")
     print(classification_report(Y_test, predictions))
+    print(f"Time: {time.time() - t}s")
 
     '''
     t = time.time()
