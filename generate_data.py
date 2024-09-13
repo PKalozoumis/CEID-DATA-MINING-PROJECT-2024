@@ -55,7 +55,7 @@ if __name__ == "__main__":
         Config = namedtuple("Config", temp.keys())
         config = Config(**temp)
 
-    window_size = 5
+    window_size = 3
     
     #Feature names
     #==================================================================================================

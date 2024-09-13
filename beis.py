@@ -30,29 +30,33 @@ from sklearn.metrics import accuracy_score, classification_report
 import tensorflow as tf
 
 import re
+import evaluate
 
 from joblib import load, dump
 
 pd.options.mode.chained_assignment = None  # default='warn'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress only warnings (not errors or info)
 
+config = None
+
+with open("config.json", "r") as f:
+    temp = json.load(f)
+    Config = namedtuple("Config", temp.keys())
+    config = Config(**temp)
+
 #====================================================================================================
 
 if __name__ == "__main__":
 
-    config = None
     num_epochs = 80
-
-    with open("config.json", "r") as f:
-        temp = json.load(f)
-        Config = namedtuple("Config", temp.keys())
-        config = Config(**temp)
 
     #Initialize dataset
     #=======================================================================================
     #df = pd.read_csv(os.path.join(config.train_dir, "W05_S006.csv"), header=0)
 
     #Limit dataset
+    #It's possible files with bigger window sizes were generated
+    #Because big window sizes lead to very slow training, you have the option to only use part of the data
     #-------------------------------------------------------------------------------------
 
     window_size = 3
@@ -70,11 +74,16 @@ if __name__ == "__main__":
     li = []
 
     for file in os.listdir(config.train_dir):
+
+        regex = r"W" + re.escape(f"{window_size:02}") + r"_S0[\d]{2}\.csv"
+
+        if not re.match(regex, file):
+            continue
+
         print(f"Reading {file}...")
 
         df = pd.read_csv(os.path.join(config.train_dir, file), index_col=None, header=0, usecols = columns)
         
-        match = re.match(r"W05_S0([\d]{2})\.csv", file)
         df["participant"] = int(file[6:8])
         df = df.astype({"label": "int"})
         li.append(df)
@@ -117,9 +126,8 @@ if __name__ == "__main__":
     t = time.time()
 
     model.fit(X_train,Y_train)
-
-    print("Dumping model...")
-    dump(model, "proj/bayes.joblib")
+    
+    evaluate.dump_model("bayes", model, X_test, Y_test)
 
     predictions = model.predict(X_test)
 
@@ -129,37 +137,3 @@ if __name__ == "__main__":
     #print(f"Accuracy: {accuracy}")
     print(classification_report(Y_test, predictions))
     print(f"Time: {time.time() - t}s")
-
-    '''
-    t = time.time()
-
-    hc = HillClimbSearch(binned)
-    best_model = hc.estimate(scoring_method=BicScore(binned))
-
-    print(best_model)
-
-    # Define Bayesian Network model
-    model = BayesianNetwork(best_model.edges())
-
-    model.fit(binned, estimator=MaximumLikelihoodEstimator)
-
-    print("Nodes in the model:", model.nodes())
-
-    inference = VariableElimination(model)
-
-    test_binned = pd.DataFrame(scaler.transform(data_test.drop(columns=["label"])), columns=data_test.drop(columns=["label"]).columns)
-    test_binned["label"] = data_test["label"]
-
-    predictions = []
-    for index, row in test_binned.iterrows():
-        evidence = row.drop("label").to_dict()
-        result = inference.map_query(variables=['label'], evidence=evidence)
-        predictions.append(result)
-
-    predictions = [int(val) for pred in predictions for val in pred.values() ]
-    true_labels = data_test["label"].tolist()
-
-    accuracy = accuracy_score(true_labels, predictions)
-    print(f"Accuracy: {accuracy}")
-    print(f"Time: {time.time() - t}s")
-    '''
