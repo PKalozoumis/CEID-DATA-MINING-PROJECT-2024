@@ -5,8 +5,7 @@ from collections import namedtuple
 import os
 import pandas as pd
 import copy
-
-from sklearn.metrics import accuracy_score, classification_report
+import sys
 
 #====================================================================================================
 
@@ -31,11 +30,82 @@ def dump_model(name: str, model, X_test: pd.DataFrame, Y_test: pd.DataFrame):
 
 def load_model(name: str):
 
+    print("Loading model...")
+    model = load(os.path.join(config.models_dir, f"{name}.joblib"))
+
+    print("Loading test data...")
     data = pd.read_csv(os.path.join(config.models_dir, f"{name}.test"))
     Y_test = data["label"]
     X_test = data.drop(columns=["label"])
 
-    return load(os.path.join(config.models_dir, f"{name}.joblib")), X_test, Y_test
+    return model, X_test, Y_test
+
+#====================================================================================================
+
+def predict(model, X_test, Y_test):
+
+     #Construct index
+     #------------------------------------------------------------------------------------------
+    index_arr = []
+
+    labels = sorted(Y_test.unique())
+
+    for label in labels:
+        index_arr.append((label, "p"))
+        index_arr.append((label, "n"))
+
+    index = pd.MultiIndex.from_tuples(index_arr, names=["label", "prediction"])
+    confusion = pd.DataFrame(columns=["p", "n"], index=index)
+
+    #Predict
+    #------------------------------------------------------------------------------------------
+    print("Predicting...")
+    predictions = model.predict(X_test)
+
+    #Make confusion matrix
+    #------------------------------------------------------------------------------------------
+    
+    print("Calculating confusion matrices...")
+
+    compare = pd.DataFrame({"pred": predictions, "true": Y_test})
+
+    for label in labels:
+        temp = compare.loc[compare["pred"]==label]["true"]
+        tp = temp[temp == label].count()
+        fp = temp[temp != label].count()
+
+        temp = compare.loc[compare["pred"]!=label]["true"]
+        fn = temp[temp == label].count()
+        tn = temp[temp != label].count()
+
+        confusion.loc[(label, "p")] = [tp, fp]
+        confusion.loc[(label, "n")] = [fn, tn]
+
+    return predictions, confusion
+
+#====================================================================================================
+
+def evaluate(matrix):
+
+    scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["accuracy", "precision", "recall", "fscore", "specificity"])
+
+    for label, data in matrix.groupby(level="label"):
+
+        data = data.droplevel("label")
+
+        tp = data.loc["p", "p"]
+        fp = data.loc["p", "n"]
+        fn = data.loc["n", "p"]
+        tn = data.loc["n", "n"]
+
+        scores.loc[label, "accuracy"] = round((tp+tn)/(tp+fn+fp+tn), 2)
+        scores.loc[label, "precision"] =  round((tp)/(tp+fp), 2)
+        scores.loc[label, "recall"] = round((tp)/(tp+fn), 2)
+        scores.loc[label, "fscore"] = round((2*tp)/(2*tp+fp+fn), 2)
+        scores.loc[label, "specificity"] =  round((tn)/(tn+fp), 2)
+
+    scores.to_excel("proj/mytest.xlsx")
+
 
 #====================================================================================================
 
@@ -45,11 +115,7 @@ if __name__ == "__main__":
     parser.add_argument('model', action="store", default=None, help="Model name (e.g. \"bayes\", without the .joblib extension). Must be under models directory")
     args = parser.parse_args()
 
-    model, X_test, Y_test = load_model(args.model)
-    print(model)
+    model, x, y = load_model(args.model)
+    predictions, confusion = predict(model, x, y)
 
-    #Evaluate
-    #==========================================================================================
-    predictions = model.predict(X_test)
-    print(classification_report(Y_test, predictions))
-
+    print(evaluate(confusion))
