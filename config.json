@@ -4,5 +4,6 @@
     "dataset_dir": "proj/harth",
     "train_dir": "proj/train_data",
     "models_dir": "proj/models",
-    "evaluation_dir": "proj/evaluation"
+    "evaluation_dir": "proj/evaluation",
+    "clustering_file_location": "proj/clustering.csv"
 }

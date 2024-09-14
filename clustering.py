@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     df = None
 
-    if not os.path.exists("proj/clustering.csv"):
+    if not os.path.exists(config.clustering_file_location):
 
         data = []
 
@@ -31,7 +31,6 @@ if __name__ == "__main__":
 
             df = pd.read_csv(os.path.join(config.dataset_dir, file), index_col=None, header=0, usecols=["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"])
 
-            #Summarize the entire file in 72 dimensions
             record = {}
             performed_activities = df["label"].unique().tolist()
 
@@ -49,26 +48,14 @@ if __name__ == "__main__":
 
             record["participant"] = int(file[2:4])
 
-            '''
-            record = {}
-
-            for feature in features:
-                record[feature + "_median"] = df[feature].median()
-                record[feature + "_std"] = df[feature].std()
-                record[feature + "_max"] = df[feature].max()
-                record[feature + "_min"] = df[feature].min()
-
-            record["participant"] = int(file[2:4])
-            '''
-
             data.append(record)
 
         df = pd.DataFrame(data)
         df.set_index("participant", inplace=True)
-        df.to_csv("proj/clustering.csv", index=True)
+        df.to_csv(config.clustering_file_location, index=True)
 
     else:
-        df = pd.read_csv("proj/clustering.csv", index_col="participant")
+        df = pd.read_csv(config.clustering_file_location, index_col="participant")
 
     #==============================================================================================================================
 
@@ -96,6 +83,7 @@ if __name__ == "__main__":
             distance_sort='descending',
             show_leaf_counts=True)
     
+    plt.show()
 
 
     print(labels)
