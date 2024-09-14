@@ -8,12 +8,14 @@ import time
 import re
 
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, CategoricalNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import KBinsDiscretizer
 
 import evaluate
+
+#====================================================================================================
 
 pd.options.mode.chained_assignment = None  # default='warn'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress only warnings (not errors or info)
@@ -24,6 +26,59 @@ with open("config.json", "r") as f:
     temp = json.load(f)
     Config = namedtuple("Config", temp.keys())
     config = Config(**temp)
+
+#====================================================================================================
+
+def neural_network(df):
+    X = df.drop(columns=["label", "participant"])
+    Y = df[["label"]]
+
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1997)
+
+    model = MLPClassifier(hidden_layer_sizes=(100,), max_iter=200, activation="relu", random_state=1997)
+
+    print("Training model...")
+    t = time.time()
+    model.fit(X_train,Y_train)
+    print(f"Time: {time.time() - t}s")
+
+    evaluate.dump_model("mlp", model, X_test, Y_test)
+
+    predictions, matrix = evaluate.predict(model, X_test, Y_test)
+    evaluate.evaluate(matrix)
+
+#=============================================================================================================
+
+def bayes(df):
+    #Binning
+    #------------------------------------------------------------------------------------------
+    X = df.drop(columns=["label", "participant"])
+    Y = df[["label"]]
+
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1997)
+    #data_train, data_test = train_test_split(df.drop(columns=["participant"]), test_size=0.3, random_state=1997)
+
+    scaler = KBinsDiscretizer(n_bins=20, encode='ordinal', strategy='quantile')
+
+    scaler.fit_transform(X_train)
+
+    X_train = pd.DataFrame(scaler.transform(X_train), columns=X_train.columns)
+    X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
+
+    #Bayes
+    #------------------------------------------------------------------------------------------
+
+    model = CategoricalNB()
+
+    print("Training model...")
+    t = time.time()
+    model.fit(X_train,Y_train)
+    print(f"Time: {time.time() - t}s")
+    
+    evaluate.dump_model("bayes", model, X_test, Y_test)
+
+    predictions, matrix = evaluate.predict(model, X_test, Y_test)
+    evaluate.evaluate(matrix)
 
 #====================================================================================================
 
@@ -54,6 +109,7 @@ if __name__ == "__main__":
     for file in os.listdir(config.train_dir):
 
         regex = r"W" + re.escape(f"{window_size:02}") + r"_S0[\d]{2}\.csv"
+        #regex = r"W03_S006.csv"
 
         if not re.match(regex, file):
             continue
@@ -68,49 +124,8 @@ if __name__ == "__main__":
 
     df = pd.concat(li, axis=0, ignore_index=True)
 
-#=============================================================================================================
-
-def neural_network(df):
-    X = df.drop(columns=["label", "participant"])
-    Y = df[["label"]]
-    
-    labels = [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 130, 140]
-
-    for label in labels:
-        Y["out" + str(label)] = (Y["label"] == label).apply(int)
-
-    Y.drop("label", inplace=True, axis=1)
-
-    print(Y)
+    neural_network(df)
 
 #=============================================================================================================
 
-def bayes(df):
-    #Binning
-    #------------------------------------------------------------------------------------------
-
-    data_train, data_test = train_test_split(df.drop(columns=["participant"]), test_size=0.3, random_state=1997)
-
-    scaler = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='quantile')
-
-    scaler.fit(data_train.drop(columns=["label"]))
-
-    binned = pd.DataFrame(scaler.transform(data_train.drop(columns=["label"])), columns=data_train.drop(columns=["label"]).columns)
-    binned["label"] = data_train["label"]
-
-    #Bayes
-    #------------------------------------------------------------------------------------------
-
-    Y = df[["label"]]
-
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1997)
-
-    model = GaussianNB()
-
-    t = time.time()
-    model.fit(X_train,Y_train)
     
-    evaluate.dump_model("bayes", model, X_test, Y_test)
-
-    predictions = model.predict(X_test)
-    print(f"Time: {time.time() - t}s")

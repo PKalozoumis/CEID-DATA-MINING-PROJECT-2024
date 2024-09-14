@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import copy
 import sys
+import time
 
 #====================================================================================================
 
@@ -48,7 +49,7 @@ def predict(model, X_test, Y_test):
      #------------------------------------------------------------------------------------------
     index_arr = []
 
-    labels = sorted(Y_test.unique())
+    labels = sorted(Y_test["label"].unique())
 
     for label in labels:
         index_arr.append((label, "p"))
@@ -67,7 +68,7 @@ def predict(model, X_test, Y_test):
     
     print("Calculating confusion matrices...")
 
-    compare = pd.DataFrame({"pred": predictions, "true": Y_test})
+    compare = pd.DataFrame({"pred": predictions, "true": Y_test["label"]})
 
     for label in labels:
         temp = compare.loc[compare["pred"]==label]["true"]
@@ -104,7 +105,13 @@ def evaluate(matrix):
         scores.loc[label, "fscore"] = round((2*tp)/(2*tp+fp+fn), 2)
         scores.loc[label, "specificity"] =  round((tn)/(tn+fp), 2)
 
-    scores.to_excel("proj/mytest.xlsx")
+    while(True):
+        try:
+            scores.to_excel("proj/mytest.xlsx")
+            break
+        except PermissionError:
+            print("Close the file proj/mytest.xlsx!")
+            time.sleep(1)
 
 
 #====================================================================================================
