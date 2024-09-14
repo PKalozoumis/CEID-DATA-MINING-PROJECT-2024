@@ -40,7 +40,27 @@ def neural_network(df, model_name):
     print("Training model...\n")
     t = time.time()
     model.fit(X_train,Y_train)
-    print(f"\nTime: {time.time() - t}s\n")
+    print(f"\nTime: {time.time() - t:.2f}s\n")
+
+    evaluate.dump_model(model_name, model, X_test, Y_test)
+
+    predictions, matrix = evaluate.predict(model, X_test, Y_test)
+    evaluate.evaluate(matrix, model_name)
+
+#====================================================================================================
+
+def random_forest(df, model_name):
+    X = df.drop(columns=["label", "participant"])
+    Y = df[["label"]]
+
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=1997)
+
+    model = RandomForestClassifier(n_estimators=100, criterion="entropy", random_state=1997)
+
+    print("Training model...\n")
+    t = time.time()
+    model.fit(X_train,Y_train)
+    print(f"\nTime: {time.time() - t:.2f}s\n")
 
     evaluate.dump_model(model_name, model, X_test, Y_test)
 
@@ -60,7 +80,7 @@ def bayes(df, model_name):
 
     scaler = KBinsDiscretizer(n_bins=20, encode='ordinal', strategy='quantile')
 
-    scaler.fit_transform(X_train)
+    scaler.fit(X_train)
 
     X_train = pd.DataFrame(scaler.transform(X_train), columns=X_train.columns)
     X_test = pd.DataFrame(scaler.transform(X_test), columns=X_test.columns)
@@ -73,11 +93,12 @@ def bayes(df, model_name):
     print("Training model...\n")
     t = time.time()
     model.fit(X_train,Y_train)
-    print(f"\nTime: {time.time() - t}s\n")
+    print(f"\nTime: {time.time() - t:.2f}s\n")
     
     evaluate.dump_model(model_name, model, X_test, Y_test)
 
     predictions, matrix = evaluate.predict(model, X_test, Y_test)
+    print()
     evaluate.evaluate(matrix, model_name)
 
 #====================================================================================================
@@ -150,6 +171,6 @@ if __name__ == "__main__":
     elif opt == 2:
         neural_network(df, model_name)
     else:
-        pass
+        random_forest(df, model_name)
 
     

@@ -22,24 +22,28 @@ with open("config.json", "r") as f:
 def dump_model(name: str, model, X_test: pd.DataFrame, Y_test: pd.DataFrame):
     os.makedirs(config.models_dir, exist_ok=True)
 
-    print("Dumping model...")
+    print(f"Dumping model {name}.joblib...")
     dump(model, os.path.join(config.models_dir, f"{name}.joblib"))
 
-    print("Dumping test data...")
+    X_test = X_test.reset_index(drop=True)
+    Y_test = Y_test.reset_index(drop=True)
+
+    print(f"Dumping test data {name}.test...")
     temp = copy.deepcopy(X_test)
-    temp["label"] = Y_test["label"]
+    temp["label"] = Y_test["label"].astype(int)
     temp.to_csv(os.path.join(config.models_dir, f"{name}.test"), index=False)
 
 #====================================================================================================
 
 def load_model(name: str):
 
-    print("Loading model...")
+    print(f"Loading model {name}.joblib...")
     model = load(os.path.join(config.models_dir, f"{name}.joblib"))
 
-    print("Loading test data...")
+    print(f"Loading test data {name}.test...")
     data = pd.read_csv(os.path.join(config.models_dir, f"{name}.test"))
-    Y_test = data["label"]
+
+    Y_test = data[["label"]]
     X_test = data.drop(columns=["label"])
 
     return model, X_test, Y_test
@@ -71,7 +75,7 @@ def predict(model, X_test, Y_test):
     
     print("Calculating confusion matrices...")
 
-    compare = pd.DataFrame({"pred": predictions, "true": Y_test["label"]})
+    compare = pd.DataFrame({"pred": predictions, "true": Y_test["label"].tolist()})
 
     for label in labels:
         temp = compare.loc[compare["pred"]==label]["true"]
@@ -93,6 +97,8 @@ def evaluate(matrix, model_name):
 
     os.makedirs(config.evaluation_dir, exist_ok=True)
 
+    #print(matrix)
+
     scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["accuracy", "precision", "recall", "fscore", "specificity"])
 
     for label, data in matrix.groupby(level="label"):
@@ -110,18 +116,21 @@ def evaluate(matrix, model_name):
         scores.loc[label, "fscore"] = round((2*tp)/(2*tp+fp+fn), 2)
         scores.loc[label, "specificity"] =  round((tn)/(tn+fp), 2)
 
-    fname = os.path.join(config.evaluation_dir, f"{model_name}.xlsx")
+    if model_name is not None:
 
-    while(True):
-        try:
-            scores.to_excel(fname)
-            break
-        except PermissionError:
-            print(f"Please close the file {fname}")
-            time.sleep(1)
+        fname = os.path.join(config.evaluation_dir, f"{model_name}.xlsx")
 
-    print(f"Saved evaluation metrics at {fname}")
+        while(True):
+            try:
+                scores.to_excel(fname)
+                break
+            except PermissionError:
+                print(f"Please close the file {fname}")
+                time.sleep(1)
 
+        print(f"Saved evaluation metrics at {fname}")
+
+    return scores
 
 #====================================================================================================
 
@@ -134,4 +143,7 @@ if __name__ == "__main__":
     model, x, y = load_model(args.model)
     predictions, confusion = predict(model, x, y)
 
-    print(evaluate(confusion))
+    print()
+    metrics = evaluate(confusion, args.model)
+    print()
+    print(metrics)
