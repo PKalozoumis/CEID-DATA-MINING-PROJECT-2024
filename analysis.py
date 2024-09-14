@@ -4,11 +4,9 @@ import os
 import seaborn as sns
 import numpy as np
 import re
-import copy
 import json
 from collections import namedtuple
 import sys
-import math
 from datetime import datetime
 import argparse
 
@@ -32,15 +30,15 @@ activities = {
 attr_list = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]
 activity_list = [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 130, 140]
 
-# noinspection SpellCheckingInspection
 if __name__ == "__main__":
 
     #Config and directory initialization
     #===================================================================================================================
     parser = argparse.ArgumentParser(description='Dataset Analysis', allow_abbrev=False)
-    parser.add_argument('--tseries', action="store_true", default=False)
-    parser.add_argument('--density', action="store_true", default=False)
-    parser.add_argument('--corr', action="store_true", default=False)
+    parser.add_argument('--all', action="store_true", default=False, help="Generate all plots")
+    parser.add_argument('--tseries', action="store_true", default=False, help="Generate time series")
+    parser.add_argument('--density', action="store_true", default=False, help="Generate density plots")
+    parser.add_argument('--corr', action="store_true", default=False, help="Generate correlation heatmaps and scatter plots")
     args = parser.parse_args()
     
     #Config and directory initialization
@@ -63,7 +61,7 @@ if __name__ == "__main__":
 
     #Density
     #---------------------------------------------------------------------------------
-    if args.density:
+    if args.density or args.all:
         if os.path.exists(f"{config.results_dir}/density"):
             shutil.rmtree(f"{config.results_dir}/density")
 
@@ -75,7 +73,7 @@ if __name__ == "__main__":
 
     #Timeseries
     #---------------------------------------------------------------------------------
-    if args.tseries:
+    if args.tseries or args.all:
         if os.path.exists(f"{config.results_dir}/timeseries"):
             shutil.rmtree(f"{config.results_dir}/timeseries")
 
@@ -86,7 +84,7 @@ if __name__ == "__main__":
 
     os.makedirs(f"{config.results_dir}/correlation", exist_ok=True)
 
-    if args.corr:
+    if args.corr or args.all:
 
         if os.path.exists(f"{config.results_dir}/correlation"):
             shutil.rmtree(f"{config.results_dir}/correlation")
@@ -150,8 +148,11 @@ if __name__ == "__main__":
     #Time Series Plots
     #===================================================================================================================
 
-    if args.tseries:
+    if args.tseries or args.all:
+
         #We want to have 5 time series examples for each activity
+        num_examples = 5
+
         tseries_counts = {key: 0 for key in activities.keys()}
 
         for participant in df["participant"].unique():
@@ -159,7 +160,7 @@ if __name__ == "__main__":
             done = True
 
             for val in tseries_counts.values():
-                if val < 5:
+                if val < num_examples:
                     done = False
                     break
 
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
             for j, (label, group) in enumerate(groups):
 
-                if tseries_counts[label] == 5:
+                if tseries_counts[label] == num_examples:
                     continue
 
                 print(f"Generating time series {tseries_counts[label]+1}/5 for {activities[label]}...")
@@ -210,7 +211,7 @@ if __name__ == "__main__":
 
         current_label_data = data.loc[data["label"] == label, ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]]
 
-        if args.corr:
+        if args.corr or args.all:
 
             print(f"Generating correlation heatmap for Activity {label:03}...")
 
@@ -241,7 +242,7 @@ if __name__ == "__main__":
                         plt.savefig(os.path.join(config.results_dir, "correlation", "scatter", f"scatter_{label:03}_{dim}_{attr}.png"), bbox_inches="tight")
                         plt.close()
 
-        if args.density:
+        if args.density or args.all:
 
             print(f"Generating density plots for Activity {label:03}...")
 
@@ -259,12 +260,6 @@ if __name__ == "__main__":
                 ax_grid[i//3, i%3].set_xlabel("Value")
                 ax_grid[i//3, i%3].set_ylabel("Density")
 
-                #low = median.loc[label, name] - 3*std.loc[label, name]
-                #high = median.loc[label, name] + 3*std.loc[label, name]
-
-                #ax_grid[i//3, i%3].axvline(x=low, color='r', linestyle='-', linewidth=1)
-                #ax_grid[i//3, i%3].axvline(x=high, color='r', linestyle='-', linewidth=1)
-
             ax0.set_title(f"Density Plot for Activity {label} ({activities[label]})")
             ax0.set_xlabel("Value")
             ax0.set_ylabel("Density")
@@ -275,7 +270,7 @@ if __name__ == "__main__":
 
         plt.close('all')
 
-    if args.density:
+    if args.density or args.all:
         #Density plots regardless of label
         #-----------------------------------------------------------------------------------------------------------------------
 
