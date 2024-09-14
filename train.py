@@ -29,7 +29,7 @@ with open("config.json", "r") as f:
 
 #====================================================================================================
 
-def neural_network(df):
+def neural_network(df, model_name):
     X = df.drop(columns=["label", "participant"])
     Y = df[["label"]]
 
@@ -37,19 +37,19 @@ def neural_network(df):
 
     model = MLPClassifier(hidden_layer_sizes=(100,), max_iter=200, activation="relu", random_state=1997)
 
-    print("Training model...")
+    print("Training model...\n")
     t = time.time()
     model.fit(X_train,Y_train)
-    print(f"Time: {time.time() - t}s")
+    print(f"\nTime: {time.time() - t}s\n")
 
-    evaluate.dump_model("mlp", model, X_test, Y_test)
+    evaluate.dump_model(model_name, model, X_test, Y_test)
 
     predictions, matrix = evaluate.predict(model, X_test, Y_test)
-    evaluate.evaluate(matrix)
+    evaluate.evaluate(matrix, model_name)
 
 #=============================================================================================================
 
-def bayes(df):
+def bayes(df, model_name):
     #Binning
     #------------------------------------------------------------------------------------------
     X = df.drop(columns=["label", "participant"])
@@ -70,19 +70,38 @@ def bayes(df):
 
     model = CategoricalNB()
 
-    print("Training model...")
+    print("Training model...\n")
     t = time.time()
     model.fit(X_train,Y_train)
-    print(f"Time: {time.time() - t}s")
+    print(f"\nTime: {time.time() - t}s\n")
     
-    evaluate.dump_model("bayes", model, X_test, Y_test)
+    evaluate.dump_model(model_name, model, X_test, Y_test)
 
     predictions, matrix = evaluate.predict(model, X_test, Y_test)
-    evaluate.evaluate(matrix)
+    evaluate.evaluate(matrix, model_name)
 
 #====================================================================================================
 
 if __name__ == "__main__":
+
+    opt = None
+    err = False
+
+    while (opt == None):
+        print("\nPlease choose the type of model\n1. Bayesian\n2. Neural Network\n3. Random Forest\n")
+
+        opt = input(f"{'Your option' if not err else 'Invalid option, try again'}: ")
+
+        if not re.match(r"1|2|3", opt):
+            err=True
+            opt = None
+            print("\033[7A", end='')
+            print("\033[J", end='')
+
+    opt = int(opt)
+
+    model_name = input("\nName of your model: ")
+    print()
 
     #Initialize dataset
     #=======================================================================================
@@ -124,8 +143,13 @@ if __name__ == "__main__":
 
     df = pd.concat(li, axis=0, ignore_index=True)
 
-    neural_network(df)
+    print()
 
-#=============================================================================================================
+    if opt == 1:
+        bayes(df, model_name)
+    elif opt == 2:
+        neural_network(df, model_name)
+    else:
+        pass
 
     

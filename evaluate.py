@@ -20,9 +20,12 @@ with open("config.json", "r") as f:
 #====================================================================================================
 
 def dump_model(name: str, model, X_test: pd.DataFrame, Y_test: pd.DataFrame):
+    os.makedirs(config.models_dir, exist_ok=True)
+
     print("Dumping model...")
     dump(model, os.path.join(config.models_dir, f"{name}.joblib"))
 
+    print("Dumping test data...")
     temp = copy.deepcopy(X_test)
     temp["label"] = Y_test["label"]
     temp.to_csv(os.path.join(config.models_dir, f"{name}.test"), index=False)
@@ -86,7 +89,9 @@ def predict(model, X_test, Y_test):
 
 #====================================================================================================
 
-def evaluate(matrix):
+def evaluate(matrix, model_name):
+
+    os.makedirs(config.evaluation_dir, exist_ok=True)
 
     scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["accuracy", "precision", "recall", "fscore", "specificity"])
 
@@ -105,13 +110,17 @@ def evaluate(matrix):
         scores.loc[label, "fscore"] = round((2*tp)/(2*tp+fp+fn), 2)
         scores.loc[label, "specificity"] =  round((tn)/(tn+fp), 2)
 
+    fname = os.path.join(config.evaluation_dir, f"{model_name}.xlsx")
+
     while(True):
         try:
-            scores.to_excel("proj/mytest.xlsx")
+            scores.to_excel(fname)
             break
         except PermissionError:
-            print("Close the file proj/mytest.xlsx!")
+            print(f"Please close the file {fname}")
             time.sleep(1)
+
+    print(f"Saved evaluation metrics at {fname}")
 
 
 #====================================================================================================
