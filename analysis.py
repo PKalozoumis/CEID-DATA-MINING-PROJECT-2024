@@ -109,7 +109,6 @@ if __name__ == "__main__":
 
         df = pd.read_csv(os.path.join(config.dataset_dir, file), index_col=None, header=0, usecols=["timestamp", "back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z", "label"])
         
-        match = re.match(r"S0([\d]{2})\.csv", file)
         df["participant"] = int(file[2:4])
         df = df.astype({"label": "int"})
         li.append(df)
@@ -127,22 +126,22 @@ if __name__ == "__main__":
     data["label"] = df["label"]
 
     mean = data.groupby("label").mean()
-    mean.to_excel(os.path.join(config.results_dir, "other", "mean.xlsx"), index_label="Label")
+    mean.to_excel(os.path.join(config.results_dir, "other", "mean.xlsx"), index_label="Label", float_format="%.3f")
     print("Saving mean.xlsx...")
 
     median = data.groupby("label").median()
-    median.to_excel(os.path.join(config.results_dir, "other", "median.xlsx"), index_label="Label")
+    median.to_excel(os.path.join(config.results_dir, "other", "median.xlsx"), index_label="Label", float_format="%.3f")
     print("Saving median.xlsx...\n")
 
     corr = data.groupby("label").corr()
     corr.index.set_names(["label", "dim"], inplace=True)
 
     for label in labels:
-        corr.loc[label].to_excel(os.path.join(config.results_dir, "correlation", f"corr_{label:03}.xlsx"))
+        corr.loc[label].to_excel(os.path.join(config.results_dir, "correlation", f"corr_{label:03}.xlsx"), float_format="%.3f")
         print(f"Saving corr_{label:03}.xlsx...\n")
 
     std = data.groupby("label").std()
-    mean.to_excel(os.path.join(config.results_dir, "other", "std.xlsx"), index_label="Label")
+    mean.to_excel(os.path.join(config.results_dir, "other", "std.xlsx"), index_label="Label", float_format="%.03f")
     print("Saving std.xlsx...\n")
 
     #Time Series Plots
@@ -157,6 +156,9 @@ if __name__ == "__main__":
 
         for participant in df["participant"].unique():
 
+            #Check if there is at least one activity that hasn't reached the example limit
+            #In that case we need more examples and we continue
+            #-------------------------------------------------------------------------------------
             done = True
 
             for val in tseries_counts.values():
@@ -166,6 +168,7 @@ if __name__ == "__main__":
 
             if done:
                 break
+            
 
             print(f"Participant {participant}")
 
@@ -259,6 +262,8 @@ if __name__ == "__main__":
                 ax_grid[i//3, i%3].set_title(f"Density Plot of {name} for Activity {label}\n({activities[label]})")
                 ax_grid[i//3, i%3].set_xlabel("Value")
                 ax_grid[i//3, i%3].set_ylabel("Density")
+
+            plt.subplots_adjust(hspace=0.3)
 
             ax0.set_title(f"Density Plot for Activity {label} ({activities[label]})")
             ax0.set_xlabel("Value")
