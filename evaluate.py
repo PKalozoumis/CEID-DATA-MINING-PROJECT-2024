@@ -97,13 +97,10 @@ def evaluate(matrix, model_name):
 
     os.makedirs(config.evaluation_dir, exist_ok=True)
 
-    #print(matrix)
-
     scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["precision", "recall", "fscore"])
 
     all = 0
     correct = 0
-    
 
     for label, data in matrix.groupby(level="label"):
 
@@ -123,6 +120,7 @@ def evaluate(matrix, model_name):
 
     accuracy = round(correct/all, 2)
 
+    #Write results to a file
     if model_name is not None:
 
         fname = os.path.join(config.evaluation_dir, f"{model_name}.xlsx")
@@ -133,7 +131,7 @@ def evaluate(matrix, model_name):
                     scores.to_excel(writer)
 
                     worksheet = writer.sheets["Sheet1"]
-                    row_start = len(scores) + 2  # Find the row number to place accuracy
+                    row_start = len(scores) + 2
                     worksheet.write(row_start, 0, "Accuracy")
                     worksheet.write(row_start, 1, accuracy)
 

@@ -3,13 +3,11 @@ from matplotlib import pyplot as plt
 import os
 import seaborn as sns
 import numpy as np
-import re
 import json
 from collections import namedtuple
 import sys
 from datetime import datetime
 import argparse
-
 import shutil
 
 activities = {
@@ -32,7 +30,7 @@ activity_list = [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 130, 140]
 
 if __name__ == "__main__":
 
-    #Config and directory initialization
+    #Arguments
     #===================================================================================================================
     parser = argparse.ArgumentParser(description='Dataset Analysis', allow_abbrev=False)
     parser.add_argument('--all', action="store_true", default=False, help="Generate all plots")
@@ -141,7 +139,7 @@ if __name__ == "__main__":
         print(f"Saving corr_{label:03}.xlsx...\n")
 
     std = data.groupby("label").std()
-    mean.to_excel(os.path.join(config.results_dir, "other", "std.xlsx"), index_label="Label", float_format="%.03f")
+    std.to_excel(os.path.join(config.results_dir, "other", "std.xlsx"), index_label="Label", float_format="%.03f")
     print("Saving std.xlsx...\n")
 
     #Time Series Plots

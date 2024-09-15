@@ -1,10 +1,8 @@
 import pandas as pd
 import os
 import numpy as np
-import shutil
 import json
 from collections import namedtuple
-import re
 import argparse
 
 #====================================================================================================
@@ -31,7 +29,6 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
             
             feature_vector = window_data.drop(columns="label").values.flatten()
             features.append(np.append(feature_vector, label))
-
         else:
             for i in range(window_size, len(df)+1):
                 window_data = df.iloc[i-window_size:i]
@@ -44,6 +41,8 @@ def file_to_window(file: str, window_size: int = 5) -> pd.DataFrame:
 
 if __name__ == "__main__":
 
+    #Config and argument initialization
+    #===================================================================================================================
     parser = argparse.ArgumentParser(description='Making windowed data out of the original dataset', allow_abbrev=False)
     parser.add_argument('--all', action="store_true", default=False, help="Recreate all files")
     args = parser.parse_args()
@@ -57,14 +56,12 @@ if __name__ == "__main__":
 
     window_size = 3
     
-    #Feature names
+    #New column names (for the extra dimensions)
     #==================================================================================================
     feature_names = ["back_x", "back_y", "back_z", "thigh_x", "thigh_y", "thigh_z"]
 
     columns = []
-
-    #New column names
-    #==================================================================================================
+    
     for i in range(window_size):
         columns.append([n + f"{'_m' + str(window_size-1 - i) if (i < window_size-1) else ''}" for n in feature_names])
 
@@ -79,16 +76,19 @@ if __name__ == "__main__":
 
         fname = f"W{window_size:02}_{file}"
 
+        #Skip window creation if a windowed version of the file already exists
         if not args.all and os.path.exists(os.path.join(config.train_dir, fname)):
             print(f"Skipping file {file}...")
             continue
 
         print(f"Reading file {file}...")
 
+        #Apply windowing function to this file
         features = file_to_window(os.path.join(config.dataset_dir, file), window_size)
         df = pd.DataFrame(features, columns=columns)
 
         df = df.astype({"label": "int"},)
         df["participant"] = int(file[2:4])
         
+        #Write file
         df.to_csv(os.path.join(config.train_dir, fname), index=False)

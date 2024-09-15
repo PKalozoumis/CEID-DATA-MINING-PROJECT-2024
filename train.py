@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-import numpy as np
 import json
 import sys
 from collections import namedtuple
@@ -108,6 +107,9 @@ if __name__ == "__main__":
     opt = None
     err = False
 
+    #Input handling
+    #===================================================================================================================
+
     while (opt == None):
         print("\nPlease choose the type of model\n1. Bayesian\n2. Neural Network\n3. Random Forest\n")
 
@@ -125,7 +127,7 @@ if __name__ == "__main__":
     print()
 
     #Initialize dataset
-    #=======================================================================================
+    #===================================================================================================================
 
     #Limit dataset
     #It's possible files with bigger window sizes were generated
@@ -142,6 +144,7 @@ if __name__ == "__main__":
 
     columns = [elem for li in columns for elem in li]
     columns.append("label")
+
     #-------------------------------------------------------------------------------------
 
     li = []
@@ -172,5 +175,3 @@ if __name__ == "__main__":
         neural_network(df, model_name)
     else:
         random_forest(df, model_name)
-
-    

@@ -1,15 +1,16 @@
+from matplotlib import pyplot as plt
+import pandas as pd
+import numpy as np
+
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+from sklearn.metrics import silhouette_score
+import hdbscan
+
 import json
 from collections import namedtuple
 import os
-import sys
 
-import pandas as pd
-from sklearn.cluster import AgglomerativeClustering, Birch, DBSCAN, KMeans
-from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
-from matplotlib import pyplot as plt
-from sklearn.metrics import silhouette_score
-import hdbscan
-import numpy as np
+#===============================================================================================================
 
 if __name__ == "__main__":
     config = None
@@ -25,7 +26,7 @@ if __name__ == "__main__":
 
     #Read the clustering file if it exists
     #Otherwise, make it
-    #--------------------------------------------------------------------------------------------------
+    #===============================================================================================================
     if not os.path.exists(os.path.join(config.clustering_dir, "clustering.csv")):
 
         data = []
@@ -68,18 +69,16 @@ if __name__ == "__main__":
     participants = df.index.tolist()
 
     #Hierarchical Clustering
-    #-----------------------------------------------------------------------------------------------------
+    #===============================================================================================================
     print("Hierarchical Clustering\n============================================================================")
 
     num_clusters = 2
-
-    #clustering = AgglomerativeClustering(n_clusters=num_clusters, linkage="ward")
-    #model = clustering.fit(df)
 
     # Generate the linkage matrix
     Z = linkage(df, method='ward')
     labels = fcluster(Z, t=num_clusters, criterion='maxclust')
 
+    #Organize each cluster elements into lists
     clusters = [[] for _ in range(num_clusters)]
 
     for participant, cluster in zip(participants, labels):
@@ -88,6 +87,7 @@ if __name__ == "__main__":
     for i, cluster in enumerate(clusters):
         print(f"Cluster {i:02}: {cluster}")
 
+    #Evaluate clustering
     score = silhouette_score(df, labels)
     print(f"\nSilhouette Score: {score:.3f}")
 
@@ -103,13 +103,14 @@ if __name__ == "__main__":
     plt.close()
 
     #HDBSCAN
-    #-----------------------------------------------------------------------------------------------------
+    #===============================================================================================================
     print("\nHDBSCAN Clustering\n============================================================================")
 
     clustering = hdbscan.HDBSCAN(min_cluster_size=2)
 
     model = clustering.fit(df)
 
+    #Organize each cluster elements into lists
     num_clusters = len(np.unique(model.labels_[model.labels_ != -1]))
 
     clusters = [[] for _ in range(num_clusters)]
@@ -120,7 +121,6 @@ if __name__ == "__main__":
     for i, cluster in enumerate(clusters):
         print(f"Cluster {i:02}: {cluster}")
 
+    #Evaluate clustering
     score = silhouette_score(df, model.labels_)
     print(f"\nSilhouette Score: {score:.3f}")
-
-    #print(labels)

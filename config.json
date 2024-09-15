@@ -1,5 +1,4 @@
 {
-    "window_size": "3",
     "results_dir": "proj/results",
     "dataset_dir": "proj/harth",
     "train_dir": "proj/train_data",
