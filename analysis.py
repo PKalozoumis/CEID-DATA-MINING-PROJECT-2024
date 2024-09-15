@@ -263,7 +263,7 @@ if __name__ == "__main__":
                 ax_grid[i//3, i%3].set_xlabel("Value")
                 ax_grid[i//3, i%3].set_ylabel("Density")
 
-            plt.subplots_adjust(hspace=0.3)
+            plt.subplots_adjust(hspace=0.35)
 
             ax0.set_title(f"Density Plot for Activity {label} ({activities[label]})")
             ax0.set_xlabel("Value")
@@ -287,5 +287,7 @@ if __name__ == "__main__":
             ax_grid[i//3, i%3].set_title(f"Density Plot of {name}")
             ax_grid[i//3, i%3].set_xlabel("Value")
             ax_grid[i//3, i%3].set_ylabel("Density")
+
+        plt.subplots_adjust(hspace=0.35)
 
         fig_grid.savefig(os.path.join(config.results_dir, "density", f"Figure_all.png"), bbox_inches="tight")

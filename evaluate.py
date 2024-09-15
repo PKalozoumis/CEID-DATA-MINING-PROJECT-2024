@@ -99,7 +99,11 @@ def evaluate(matrix, model_name):
 
     #print(matrix)
 
-    scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["accuracy", "precision", "recall", "fscore", "specificity"])
+    scores = pd.DataFrame(index=matrix.index.get_level_values("label").unique(), columns=["precision", "recall", "fscore"])
+
+    all = 0
+    correct = 0
+    
 
     for label, data in matrix.groupby(level="label"):
 
@@ -110,11 +114,14 @@ def evaluate(matrix, model_name):
         fn = data.loc["n", "p"]
         tn = data.loc["n", "n"]
 
-        scores.loc[label, "accuracy"] = round((tp+tn)/(tp+fn+fp+tn), 2)
         scores.loc[label, "precision"] =  round((tp)/(tp+fp), 2)
         scores.loc[label, "recall"] = round((tp)/(tp+fn), 2)
         scores.loc[label, "fscore"] = round((2*tp)/(2*tp+fp+fn), 2)
-        scores.loc[label, "specificity"] =  round((tn)/(tn+fp), 2)
+        
+        all = tp+tn+fp+fn
+        correct += tp
+
+    accuracy = round(correct/all, 2)
 
     if model_name is not None:
 
@@ -122,7 +129,14 @@ def evaluate(matrix, model_name):
 
         while(True):
             try:
-                scores.to_excel(fname)
+                with pd.ExcelWriter(fname, engine="xlsxwriter") as writer:
+                    scores.to_excel(writer)
+
+                    worksheet = writer.sheets["Sheet1"]
+                    row_start = len(scores) + 2  # Find the row number to place accuracy
+                    worksheet.write(row_start, 0, "Accuracy")
+                    worksheet.write(row_start, 1, accuracy)
+
                 break
             except PermissionError:
                 print(f"Please close the file {fname}")
@@ -130,7 +144,7 @@ def evaluate(matrix, model_name):
 
         print(f"Saved evaluation metrics at {fname}")
 
-    return scores
+    return scores, accuracy
 
 #====================================================================================================
 
@@ -144,6 +158,7 @@ if __name__ == "__main__":
     predictions, confusion = predict(model, x, y)
 
     print()
-    metrics = evaluate(confusion, args.model)
+    metrics, accuracy = evaluate(confusion, args.model)
     print()
     print(metrics)
+    print(f"\nAccuracy: {accuracy}")
